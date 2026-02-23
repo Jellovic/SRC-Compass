@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --heatmap-low: 240 240 240;
+  --heatmap-mid: 150 150 150;
+  --heatmap-high: 60 60 60;
+}
+
+body {
+  @apply bg-stone-50 text-stone-900 antialiased;
+}
