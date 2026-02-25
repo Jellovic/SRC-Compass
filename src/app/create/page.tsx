@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function CreateSessionPage() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [wordsInput, setWordsInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -16,12 +17,20 @@ export default function CreateSessionPage() {
       setError("Enter a session name.");
       return;
     }
+    const labels = wordsInput
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (labels.length === 0) {
+      setError("Enter at least one word (comma- or newline-separated).");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/sessions/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), wordSet: "default" }),
+        body: JSON.stringify({ name: name.trim(), words: wordsInput.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create session");
@@ -37,7 +46,7 @@ export default function CreateSessionPage() {
     <main className="mx-auto max-w-lg px-6 py-16">
       <h1 className="text-2xl font-semibold text-stone-800">Create session</h1>
       <p className="mt-2 text-stone-600">
-        Choose a name and we’ll create a session with the default 6-word set. Share the session code with participants.
+        Name the session and list the words your group will calibrate. Share the session code with participants.
       </p>
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div>
@@ -52,6 +61,20 @@ export default function CreateSessionPage() {
             className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900"
             placeholder="e.g. Sprint Planning Calibration"
           />
+        </div>
+        <div>
+          <label htmlFor="words" className="block text-sm font-medium text-stone-700">
+            Words to calibrate
+          </label>
+          <textarea
+            id="words"
+            value={wordsInput}
+            onChange={(e) => setWordsInput(e.target.value)}
+            rows={4}
+            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900"
+            placeholder={"e.g. urgent, aligned, prototype\nor one word per line"}
+          />
+          <p className="mt-1 text-xs text-stone-500">One per line or comma-separated</p>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button

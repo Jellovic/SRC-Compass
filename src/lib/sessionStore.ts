@@ -7,8 +7,7 @@
  * is reused across recompiles and the session is not lost.
  */
 
-import type { Session, Response } from "./types";
-import { PRESET_WORDS } from "./seedData";
+import type { Session, Response, Word } from "./types";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -30,10 +29,9 @@ function shortCode(): string {
   return code;
 }
 
-export function createSession(name: string, wordSet: "default"): { session: Session; code: string } {
+export function createSession(name: string, words: Word[]): { session: Session; code: string } {
   const id = crypto.randomUUID();
-  const words = wordSet === "default" ? [...PRESET_WORDS] : [...PRESET_WORDS];
-  const session: Session = { id, name, createdAt: Date.now(), words };
+  const session: Session = { id, name, createdAt: Date.now(), words: [...words] };
   sessions.set(id, session);
   const code = shortCode();
   codeToSessionId.set(code, id);

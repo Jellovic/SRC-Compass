@@ -96,3 +96,44 @@ export const PRESET_WORDS: Word[] = [
     ],
   },
 ];
+
+/** Default anchors used when building words from creator-provided labels. */
+const DEFAULT_ANCHORS: [string, string, string, string, string] = [
+  "Not at all",
+  "A little",
+  "Somewhat",
+  "Quite",
+  "Extremely",
+];
+
+/**
+ * Build a word bank from the session creator's list of labels.
+ * Each word gets default anchors and 6 placeholder referents (A–F).
+ */
+export function wordsFromLabels(labels: string[]): Word[] {
+  const seen = new Set<string>();
+  const raw = labels
+    .flatMap((s) => s.split(/[\n,]/))
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const unique = raw.filter((s) => {
+    const key = s.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.map((label, i) => {
+    const wordId = `w-${i}`;
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    return {
+      id: wordId,
+      label,
+      anchors: DEFAULT_ANCHORS,
+      referents: letters.map((letter, j) => ({
+        id: `r-${i}-${j}`,
+        label: letter,
+        imageUrl: placeholderSvg(letter, (i * 60 + j * 40) % 360),
+      })),
+    };
+  });
+}
