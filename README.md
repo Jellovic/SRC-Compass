@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Cognitive Proximity Word Mapper
 
-## Getting Started
+Minimal Next.js prototype for facilitating group sense‑making around words. A facilitator creates a session with a list of words, participants join via a short code and submit synonyms/connotations, and the app aggregates responses and generates clustered word maps.
 
-First, run the development server:
+### How to run locally
+
+- **Install dependencies**
+
+```bash
+cd app
+npm install
+```
+
+- **Set your OpenAI API key**
+
+Create a `.env.local` file in the `app` directory:
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+Then restart the dev server whenever you change `.env.local`.
+
+- **Start the dev server**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000` in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Core flows
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Create session**: go to `/create`, enter a session name and one word per line, and submit. You will get a short session code plus links to the leader dashboard and participant view.
+- **Join session**: participants go to `/` or `/join/[code]`, enter the code, and are taken through each word in turn with a single text box for comma‑separated synonyms/connotations.
+- **View results (leader)**: go to `/leader/[code]` to see aggregated counts per word. For any word you can click **Analyze** to generate a clustered 2D map and **Download PNG** to save the canvas.
 
-## Learn More
+### Analysis approach
 
-To learn more about Next.js, take a look at the following resources:
+The `/api/analyze` endpoint uses a simple LLM‑based clustering strategy (Option B from the spec):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- For a given session code and `wordIndex`, the server collects all unique submitted terms for that word.
+- It calls the OpenAI Chat Completions API (model `gpt-4o-mini`) with a strict JSON prompt asking for `{ clusters: [{ label, terms: string[] }] }`.
+- On the server, these clusters are laid out in a coarse grid of “islands”: each cluster gets a cell in a rows×columns grid, and terms are positioned in a small radial pattern inside that cell to create a 2D “map” effect.
+- The API returns `{ clusters, layout }`, where `layout` is a list of `{ term, x, y, clusterLabel, clusterIndex }` items with normalized coordinates in \[0,1\].
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The front‑end `WordMap` component uses `<canvas>` to render these layout points as colored nodes with text labels and provides a “Download PNG” button that exports the canvas via `toDataURL`.
 
-## Deploy on Vercel
+Comments in `app/app/api/analyze/route.ts` and `lib/store.ts` mark where the LLM‑based clustering is plugged in, so you can later swap in an embeddings + k‑means + PCA pipeline if desired.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Data model and storage
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Session**: `{ id, code, name, words: string[], createdAt }`
+- **Entry**: `{ sessionId, wordIndex, terms: string[] }` (terms are pre‑cleaned: split on commas, trimmed, lower‑cased, punctuation stripped, de‑duplicated).
+
+All data is stored in simple in‑memory Maps on the server (`lib/store.ts`). This keeps the prototype very lean and is suitable for single‑process local dev. There is no database, no authentication, and no participant identity stored.
+
+### Known limitations
+
+- **Ephemeral storage**: sessions and entries live only in server memory. Restarting the dev server clears everything.
+- **Single process**: the in‑memory store is not shared across processes or deployments; it is intended for local prototypes only.
+- **OpenAI dependency**: analysis requires `OPENAI_API_KEY`. If it is missing or the API fails, analysis will fail gracefully with an error message.
+- **Approximate layout**: the 2D map is a simple grid‑based layout on top of LLM clusters—not a true geometric embedding—so distances are visually suggestive rather than mathematically precise.
+- **No real‑time updates**: leaders refresh results manually; there are no websockets or live updates by design.
